@@ -4,19 +4,19 @@ import os
 from PIL import Image
 from datetime import datetime
 
-# ---------------------------
+# =============================
 # CONFIG
-# ---------------------------
-st.set_page_config(page_title="Inventory Manager", layout="wide")
+# =============================
+st.set_page_config(page_title="Inventory Management App", layout="wide")
 
 DATA_FILE = "inventory.csv"
 IMAGE_FOLDER = "images"
 
 os.makedirs(IMAGE_FOLDER, exist_ok=True)
 
-# ---------------------------
+# =============================
 # LOAD / SAVE DATA
-# ---------------------------
+# =============================
 def load_data():
     if os.path.exists(DATA_FILE):
         return pd.read_csv(DATA_FILE)
@@ -36,16 +36,16 @@ def save_data(df):
 
 df = load_data()
 
-# ---------------------------
+# =============================
 # UI
-# ---------------------------
+# =============================
 st.title("📦 Inventory Management App")
 
 tabs = st.tabs(["➕ Add Item", "📋 Inventory List", "🗑 Delete Item"])
 
-# ---------------------------
+# =============================
 # ADD ITEM
-# ---------------------------
+# =============================
 with tabs[0]:
     st.subheader("Add New Item")
 
@@ -58,10 +58,13 @@ with tabs[0]:
         price = st.number_input("Price", min_value=0.0, step=0.01)
 
     with col2:
-        image_file = st.file_uploader("Upload Item Image", type=["jpg", "jpeg", "png"])
+        image_file = st.file_uploader(
+            "Upload Item Image (High Quality)",
+            type=["jpg", "jpeg", "png"]
+        )
 
     if st.button("Add Item"):
-        if item_name == "":
+        if item_name.strip() == "":
             st.error("Item name is required")
         else:
             item_id = f"ITEM-{len(df)+1}"
@@ -69,8 +72,18 @@ with tabs[0]:
 
             if image_file:
                 image_name = f"{item_id}.png"
+
+                # 🔥 BLUR FIX STARTS HERE 🔥
                 image = Image.open(image_file)
-                image.save(os.path.join(IMAGE_FOLDER, image_name))
+                image = image.convert("RGB")  # remove compression artifacts
+
+                image.save(
+                    os.path.join(IMAGE_FOLDER, image_name),
+                    format="PNG",
+                    optimize=False,   # NO compression
+                    compress_level=0  # MAX quality
+                )
+                # 🔥 BLUR FIX ENDS HERE 🔥
 
             new_row = {
                 "Item ID": item_id,
@@ -87,9 +100,9 @@ with tabs[0]:
 
             st.success("Item added successfully ✅")
 
-# ---------------------------
+# =============================
 # INVENTORY LIST
-# ---------------------------
+# =============================
 with tabs[1]:
     st.subheader("Inventory Items")
 
@@ -97,11 +110,15 @@ with tabs[1]:
         st.info("No items added yet.")
     else:
         for _, row in df.iterrows():
-            col1, col2 = st.columns([1, 3])
+            col1, col2 = st.columns([1.2, 3])
 
             with col1:
-                if row["Image"] != "" and os.path.exists(f"{IMAGE_FOLDER}/{row['Image']}"):
-                    st.image(f"{IMAGE_FOLDER}/{row['Image']}", width=120)
+                if row["Image"] and os.path.exists(f"{IMAGE_FOLDER}/{row['Image']}"):
+                    st.image(
+                        f"{IMAGE_FOLDER}/{row['Image']}",
+                        caption=row["Item Name"],
+                        use_container_width=False  # IMPORTANT: prevents blur
+                    )
                 else:
                     st.text("No Image")
 
@@ -116,9 +133,9 @@ with tabs[1]:
                 """)
                 st.divider()
 
-# ---------------------------
+# =============================
 # DELETE ITEM
-# ---------------------------
+# =============================
 with tabs[2]:
     st.subheader("Delete Item")
 
@@ -133,7 +150,7 @@ with tabs[2]:
         if st.button("Delete"):
             row = df[df["Item ID"] == item_to_delete].iloc[0]
 
-            if row["Image"] != "":
+            if row["Image"]:
                 img_path = f"{IMAGE_FOLDER}/{row['Image']}"
                 if os.path.exists(img_path):
                     os.remove(img_path)
